@@ -1,4 +1,3 @@
-import type { QueryFieldMetadata } from "@/types/api";
 import type { RuleGroupType } from "react-querybuilder";
 
 const defaultOperators = [
@@ -33,7 +32,7 @@ let buildQueryCounter = 0;
 
 export function generateQueryId() {
   buildQueryCounter += 1;
-  return `id-${buildQueryCounter}-${Date.now().toString(36)}`;
+  return `id-${buildQueryCounter}`;
 }
 
 export function buildDefaultQuery(combinator: "and" | "or" = "and"): RuleGroupType {

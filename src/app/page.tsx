@@ -4,25 +4,31 @@ import { useState, useCallback, useMemo } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
 import { EmployeeSelector } from "@/components/query-builder/EmployeeSelector";
-import { DepartmentQuery } from "@/components/query-builder/DepartmentQuery";
-import { EmployeeQuery } from "@/components/query-builder/EmployeeQuery";
 import { CustomQuery } from "@/components/query-builder/CustomQuery";
+import { CustomQueryBuilder } from "@/components/query-builder/CustomQueryBuilder";
 import { fetchDepartmentMetadata, fetchEmployeeMetadata } from "@/lib/api/department";
 import { fetchEmployeeList } from "@/lib/api/employee";
-import { generateQueryId } from "@/lib/query-builder/fields";
+import { generateQueryId, buildDefaultQuery } from "@/lib/query-builder/fields";
+import { transformMetadata, getDefaultQueryForMetadata } from "@/lib/query-builder/metadata";
 import type { RuleGroupType } from "react-querybuilder";
 
 function QueryBuilderApp() {
-  const [departmentQuery, setDepartmentQuery] = useState<RuleGroupType>(() => ({
-    id: generateQueryId(),
+  const [combinedQuery, setCombinedQuery] = useState<RuleGroupType>(() => ({
+    id: "query-1",
     combinator: "and",
-    rules: [{ field: "", operator: "=", value: "", id: generateQueryId() }],
+    rules: [
+      {
+        id: "rule-1",
+        type: "group",
+        combinator: "and",
+        rules: [{ field: "", operator: "=", value: "", id: "rule-2" }],
+        not: false,
+      },
+    ],
     not: false,
   }));
 
-  const [employeeQuery, setEmployeeQuery] = useState<RuleGroupType | undefined>(undefined);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
-
   const [customQueries, setCustomQueries] = useState<
     Array<{ id: string; query: RuleGroupType }>
   >([]);
@@ -69,29 +75,14 @@ function QueryBuilderApp() {
 
   const handleEmployeeSelect = useCallback((employeeId: string) => {
     setSelectedEmployeeId(employeeId);
-    setEmployeeQuery({
-      id: generateQueryId(),
-      combinator: "and",
-      rules: [{ field: "", operator: "=", value: "", id: generateQueryId() }],
-      not: false,
-    });
   }, []);
 
-  const handleDepartmentQueryChange = useCallback((query: RuleGroupType) => {
-    setDepartmentQuery(query);
-  }, []);
-
-  const handleEmployeeQueryChange = useCallback((query: RuleGroupType) => {
-    setEmployeeQuery(query);
+  const handleCombinedQueryChange = useCallback((query: RuleGroupType) => {
+    setCombinedQuery(query);
   }, []);
 
   const handleAddCustomQuery = useCallback(() => {
-    const newQuery: RuleGroupType = {
-      id: generateQueryId(),
-      combinator: "and",
-      rules: [{ field: "", operator: "=", value: "", id: generateQueryId() }],
-      not: false,
-    };
+    const newQuery = buildDefaultQuery();
     setCustomQueries((prev) => [
       ...prev,
       { id: generateQueryId(), query: newQuery },
@@ -127,10 +118,54 @@ function QueryBuilderApp() {
     };
   }, [employeeMetadata]);
 
+  const combinedMetadata = useMemo(() => {
+    if (!departmentMetadata) return null;
+
+    const combinedFields = [...departmentMetadata.fields];
+
+    if (employeeMetadata) {
+      combinedFields.push(
+        ...employeeMetadata.fields.map((field) => ({
+          ...field,
+          name: `employee_${field.name}`,
+          label: `[Employee] ${field.label}`,
+        }))
+      );
+    }
+
+    return transformMetadata({
+      fields: combinedFields,
+      defaultCombinator: "and",
+    });
+  }, [departmentMetadata, employeeMetadata]);
+
   const isEmployeeLoading =
     isEmployeesLoading ||
     isEmployeeMetadataLoading ||
     (selectedEmployeeId !== null && !employeeMetadataFormatted && !employeeMetadataError);
+
+  const combinedQueryWithEmployeeGroup = useMemo(() => {
+    if (!selectedEmployeeId || !employeeMetadata) {
+      return combinedQuery;
+    }
+
+    const employeeGroup: RuleGroupType = {
+      id: `employee-group-${selectedEmployeeId}`,
+      combinator: "and",
+      rules: [{ field: "", operator: "=", value: "", id: `employee-rule-${selectedEmployeeId}` }],
+      not: false,
+    };
+
+    const existingRules = combinedQuery.rules.filter((rule) => {
+      const typedRule = rule as RuleGroupType & { id?: string };
+      return typedRule.id !== employeeGroup.id;
+    });
+
+    return {
+      ...combinedQuery,
+      rules: [...existingRules, employeeGroup],
+    };
+  }, [combinedQuery, selectedEmployeeId, employeeMetadata]);
 
   return (
     <div className="flex h-screen bg-background">
@@ -161,21 +196,15 @@ function QueryBuilderApp() {
           </div>
 
           <div className="space-y-6">
-            <DepartmentQuery
-              metadata={departmentMetadataFormatted}
+            <CustomQueryBuilder
+              title="Query Builder"
+              description={selectedEmployeeId ? `Department + Employee Query${employeeMetadata ? ` (${employeeMetadata.employeeName})` : ""}` : "Department Query"}
+              metadata={combinedMetadata}
+              defaultQuery={combinedQueryWithEmployeeGroup}
+              query={combinedQueryWithEmployeeGroup}
+              onQueryChange={handleCombinedQueryChange}
               isLoading={isDepartmentLoading}
               error={departmentError instanceof Error ? departmentError : null}
-              onQueryChange={handleDepartmentQueryChange}
-              query={departmentQuery}
-            />
-
-            <EmployeeQuery
-              employeeId={selectedEmployeeId}
-              metadata={employeeMetadataFormatted}
-              isLoading={isEmployeeLoading}
-              error={employeeMetadataError instanceof Error ? employeeMetadataError : null}
-              onQueryChange={handleEmployeeQueryChange}
-              query={employeeQuery}
             />
 
             {customQueries.map((item, index) => (
@@ -206,12 +235,7 @@ function QueryBuilderApp() {
                   fieldMap: new Map(),
                   defaultCombinator: "and",
                 }}
-                defaultQuery={{
-                  id: generateQueryId(),
-                  combinator: "and",
-                  rules: [{ field: "", operator: "=", value: "", id: generateQueryId() }],
-                  not: false,
-                }}
+                defaultQuery={buildDefaultQuery()}
                 query={item.query}
                 onQueryChange={(q) => handleCustomQueryChange(index, q)}
                 onRemove={() => handleRemoveCustomQuery(index)}
@@ -250,8 +274,7 @@ function QueryBuilderApp() {
             <pre className="mt-3 overflow-x-auto rounded-lg bg-muted p-4 text-xs text-foreground">
               {JSON.stringify(
                 {
-                  department: departmentQuery,
-                  employee: employeeQuery,
+                  combined: combinedQueryWithEmployeeGroup,
                   custom: customQueries.map((q) => q.query),
                 },
                 null,

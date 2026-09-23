@@ -9,7 +9,7 @@ import {
 } from "react-querybuilder";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { QueryBuilderConfig } from "@/lib/query-builder/types";
-import { operators, combinators } from "@/lib/query-builder/fields";
+import { operators, combinators, generateQueryId } from "@/lib/query-builder/fields";
 import { buildDefaultQuery } from "@/lib/query-builder/fields";
 import { getValueEditorTypeForField, getValuesForField } from "@/lib/query-builder/metadata";
 
@@ -110,6 +110,7 @@ export function CustomQueryBuilder({
     combinators: rqbCombinators,
     getValueEditorType: metadata ? getValueEditorType : undefined,
     getValues: metadata ? getValues : undefined,
+    idGenerator: generateQueryId,
     showCloneButtons: false,
     showLockButtons: false,
     showNotToggle: true,
