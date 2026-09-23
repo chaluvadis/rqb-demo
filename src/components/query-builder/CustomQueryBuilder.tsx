@@ -12,6 +12,7 @@ import type { QueryBuilderConfig } from "@/lib/query-builder/types";
 import { operators, combinators, generateQueryId } from "@/lib/query-builder/fields";
 import { buildDefaultQuery } from "@/lib/query-builder/fields";
 import { getValueEditorTypeForField, getValuesForField } from "@/lib/query-builder/metadata";
+import { RemoveGroupAction, RemoveRuleAction } from "./QueryBuilderActions";
 
 // Keep a local re-export so query-builder imports remain stable.
 export { operators, combinators };
@@ -125,6 +126,10 @@ export function CustomQueryBuilder({
     resetOnFieldChange: false,
     resetOnOperatorChange: false,
     autoSelectField: true,
+    controlElements: {
+      removeRuleAction: RemoveRuleAction,
+      removeGroupAction: RemoveGroupAction,
+    },
   };
 
   const renderContent = () => {

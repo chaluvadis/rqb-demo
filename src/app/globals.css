@@ -129,3 +129,51 @@
     @apply font-sans;
   }
 }
+
+/* React Query Builder UX improvements */
+.query-builder {
+  @apply rounded-lg border border-border bg-background p-4;
+}
+
+.query-builder .rule-group {
+  @apply rounded-md border border-border bg-background p-4;
+}
+
+.query-builder .rule {
+  @apply flex flex-wrap items-center gap-2 rounded-md bg-muted/30 p-3;
+}
+
+.query-builder .rule select,
+.query-builder .rule input {
+  @apply rounded-md border-border bg-background;
+}
+
+.query-builder .rule-actions,
+.query-builder .group-actions {
+  @apply flex items-center gap-1;
+}
+
+.query-builder button {
+  @apply rounded-md transition-colors;
+}
+
+.query-builder button:hover {
+  @apply bg-muted;
+}
+
+.query-builder .rule-group-header {
+  @apply flex items-center gap-2;
+}
+
+.query-builder .rule-group-body {
+  @apply mt-2 space-y-2;
+}
+
+.query-builder .combinator-selector {
+  @apply rounded-md;
+}
+
+.query-builder .add-rule,
+.query-builder .add-group {
+  @apply inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground;
+}
