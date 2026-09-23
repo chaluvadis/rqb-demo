@@ -10,7 +10,6 @@ export interface CustomQueryProps {
   id: string;
   title: string;
   config: QueryBuilderConfig;
-  defaultQuery: RuleGroupType;
   query: RuleGroupType;
   onQueryChange: (query: RuleGroupType) => void;
   onRemove: () => void;
@@ -20,7 +19,6 @@ export function CustomQuery({
   id,
   title,
   config,
-  defaultQuery,
   query,
   onQueryChange,
   onRemove,
@@ -43,7 +41,6 @@ export function CustomQuery({
       key={id}
       title={title}
       metadata={config}
-      defaultQuery={defaultQuery}
       query={query}
       onQueryChange={onQueryChange}
       actions={actions}

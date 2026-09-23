@@ -13,17 +13,13 @@ import { operators, combinators, generateQueryId } from "@/lib/query-builder/fie
 import { buildDefaultQuery } from "@/lib/query-builder/fields";
 import { getValueEditorTypeForField, getValuesForField } from "@/lib/query-builder/metadata";
 
-
-
-
-
 // Keep a local re-export so query-builder imports remain stable.
 export { operators, combinators };
 
 export interface CustomQueryBuilderProps {
   title: string;
   metadata: QueryBuilderConfig | null;
-  defaultQuery: RuleGroupType | null;
+  defaultQuery?: RuleGroupType | null;
   onQueryChange: (query: RuleGroupType) => void;
   query?: RuleGroupType;
   isLoading?: boolean;
@@ -32,6 +28,8 @@ export interface CustomQueryBuilderProps {
   actions?: React.ReactNode;
   emptyState?: React.ReactNode;
 }
+
+let builderCounter = 0;
 
 export function CustomQueryBuilder({
   title,
@@ -45,29 +43,32 @@ export function CustomQueryBuilder({
   actions,
   emptyState,
 }: CustomQueryBuilderProps) {
+  const isControlled = query !== undefined;
   const [internalQuery, setInternalQuery] = useState<RuleGroupType>(() =>
     defaultQuery ?? buildDefaultQuery()
   );
 
-  const activeQuery = query ?? internalQuery;
+  const activeQuery = isControlled ? query : internalQuery;
 
   const handleQueryChange = useCallback(
     (newQuery: RuleGroupType) => {
-      setInternalQuery(newQuery);
+      if (!isControlled) {
+        setInternalQuery(newQuery);
+      }
       onQueryChange(newQuery);
     },
-    [onQueryChange]
+    [isControlled, onQueryChange]
   );
 
   const getValueEditorType = useCallback(
-    (_field: string, _operator: string, misc: { fieldData: { name: string } }): ValueEditorType => {
+    (_field: string, _operator: string, misc: { fieldData: { name: string; }; }): ValueEditorType => {
       return getValueEditorTypeForField(misc.fieldData.name, metadata?.fieldMap ?? new Map()) as ValueEditorType;
     },
     [metadata]
   );
 
   const getValues = useCallback(
-    (_field: string, _operator: string, misc: { fieldData: { name: string } }) => {
+    (_field: string, _operator: string, misc: { fieldData: { name: string; }; }) => {
       return getValuesForField(misc.fieldData.name, metadata?.fieldMap ?? new Map());
     },
     [metadata]
@@ -102,7 +103,13 @@ export function CustomQueryBuilder({
     []
   );
 
+  const builderId = useMemo(() => {
+    builderCounter += 1;
+    return `qb-${builderCounter}`;
+  }, []);
+
   const rqbProps: QueryBuilderProps<RuleGroupType, typeof rqbFields[number], typeof rqbOperators[number], typeof rqbCombinators[number]> = {
+    qbId: builderId,
     query: activeQuery,
     onQueryChange: handleQueryChange,
     fields: rqbFields,
