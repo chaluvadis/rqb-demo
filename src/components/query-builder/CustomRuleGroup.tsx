@@ -4,23 +4,20 @@ import { useState, useMemo, useCallback, type ComponentType } from "react";
 import {
   Plus,
   Trash2,
-  ChevronDown,
-  ChevronUp,
+  Layers,
   type LucideIcon,
 } from "lucide-react";
 import {
-  QueryBuilder,
-  RuleGroupHeaderComponents,
-  type UseRuleGroup,
+  type RuleGroupProps,
   type RuleGroupType,
-  type RuleGroupTypeIC,
   type RuleType,
   type Path,
   type ValueEditorType,
   type QueryBuilderProps,
+  QueryBuilder,
 } from "react-querybuilder";
 
-interface CustomRuleGroupProps extends UseRuleGroup {
+interface CustomRuleGroupProps {
   employeeFields?: Array<{
     name: string;
     label: string;
@@ -31,25 +28,46 @@ interface CustomRuleGroupProps extends UseRuleGroup {
   employeeQueries?: Map<string, RuleGroupType>;
   onEmployeeQueryChange?: (employeeId: string, query: RuleGroupType) => void;
   employeeId?: string;
+  // Properties from RuleGroupProps that we use
+  ruleGroup?: RuleGroupType;
+  path?: Path;
+  schema?: {
+    maxLevels?: number;
+    showShiftActions?: boolean;
+    showCloneButtons?: boolean;
+    showUngroupButtons?: boolean;
+  };
+  classNames?: Record<string, string>;
+  translations?: Record<string, string>;
+  addRule?: () => void;
+  addGroup?: () => void;
+  removeGroup?: () => void;
+  cloneGroup?: () => void;
+  ungroup?: () => void;
+  shiftGroupUp?: () => void;
+  shiftGroupDown?: () => void;
+  shiftUpDisabled?: boolean;
+  shiftDownDisabled?: boolean;
+  disabled?: boolean;
+  onCombinatorChange?: (value: string) => void;
+  onNotToggleChange?: (value: boolean) => void;
+  controls?: {
+    ruleGroup: (props: CustomRuleGroupProps) => React.ReactNode;
+    rule: (props: any) => React.ReactNode;
+  };
+  rules?: Array<RuleType | RuleGroupType | string>;
+  combinator?: string;
+  not?: boolean;
 }
 
-const HeaderIcon = ({ icon: Icon }: { icon: LucideIcon }) => (
-  <span className="inline-flex h-5 w-5 items-center justify-center">
-    <Icon className="h-4 w-4" aria-hidden="true" />
-  </span>
-);
-
-function isRuleType(rule: RuleType | RuleGroupType | RuleGroupTypeIC | string): rule is RuleType {
-  return typeof rule !== "string" && !("combinator" in rule);
-}
-
-function hasEmployeeFields(ruleGroup: RuleGroupType | RuleGroupTypeIC, employeeFields?: Array<any>): boolean {
+function hasEmployeeFields(ruleGroup: RuleGroupType, employeeFields?: Array<any>): boolean {
   if (employeeFields && employeeFields.length > 0) {
     return true;
   }
   return ruleGroup.rules.some(
     (rule) =>
-      isRuleType(rule) &&
+      typeof rule !== "string" &&
+      "combinator" in rule === false &&
       rule.field &&
       (rule.field.startsWith("employee_") ||
         ["fullName", "email", "salary", "hireDate", "level", "specialty", "quota", "isActive"].includes(rule.field))
@@ -100,6 +118,21 @@ const SelectTrigger = ({
   </select>
 );
 
+const CheckboxTrigger = ({ 
+  checked, 
+  onChange, 
+  className = "",
+  ...props 
+}: React.InputHTMLAttributes<HTMLInputElement>) => (
+  <input
+    type="checkbox"
+    checked={checked}
+    onChange={onChange}
+    className={`rounded border-gray-300 text-primary focus:ring-primary ${className}`}
+    {...props}
+  />
+);
+
 export const CustomRuleGroup: ComponentType<CustomRuleGroupProps> = (props) => {
   const {
     ruleGroup,
@@ -123,19 +156,24 @@ export const CustomRuleGroup: ComponentType<CustomRuleGroupProps> = (props) => {
     employeeQueries,
     onEmployeeQueryChange,
     employeeId,
+    controls,
+    rules,
+    combinator,
+    not,
     ...rest
   } = props;
 
-  const isRootGroup = path.length === 0;
-  const isEmployee = hasEmployeeFields(ruleGroup, employeeFields);
+  const pathArray = path ?? [];
+  const ruleGroupObj = ruleGroup ?? { rules: [], combinator: "and", not: false };
+  
+  const isRootGroup = pathArray.length === 0;
+  const isEmployee = hasEmployeeFields(ruleGroupObj, employeeFields);
   const showEmployeeQuery = isEmployee && employeeFields && employeeFields.length > 0;
-  const currentCombinator = "combinator" in ruleGroup && ruleGroup.combinator ? ruleGroup.combinator : "and";
+  const currentCombinator = combinator ?? "and";
   const isDisabled = disabled ?? false;
-  const shiftUpDisabledFinal = shiftUpDisabled ?? false;
-  const shiftDownDisabledFinal = shiftDownDisabled ?? false;
 
   // Check if this group represents a specific employee
-  const groupEmployeeId = employeeId || (path.length === 1 ? String(path[0]) : null);
+  const groupEmployeeId = employeeId || (pathArray.length === 1 ? String(pathArray[0]) : null);
 
   const ruleGroupClassName = [
     "rounded-xl",
@@ -167,30 +205,12 @@ export const CustomRuleGroup: ComponentType<CustomRuleGroupProps> = (props) => {
   const bodyClassName = [
     classNames?.body,
     "p-4",
+    "space-y-3",
+    "bg-gray-50/50",
+    "min-h-[50px]",
   ]
     .filter(Boolean)
     .join(" ");
-
-  const mergedClassNames = useMemo(() => ({
-    ...classNames,
-    header: headerClassName,
-    body: bodyClassName,
-    ruleGroup: ruleGroupClassName,
-    undoRedoActions: classNames?.undoRedoActions ?? "flex items-center gap-1",
-    undoAction: classNames?.undoAction ?? "",
-    redoAction: classNames?.redoAction ?? "",
-    shiftActions: classNames?.shiftActions ?? "flex items-center gap-1",
-    dragHandle: classNames?.dragHandle ?? "inline-flex h-7 w-7 cursor-grab items-center justify-center rounded-md text-muted-foreground/50 hover:text-muted-foreground",
-    combinators: classNames?.combinators ?? "rounded-md",
-    notToggle: classNames?.notToggle ?? "rounded-md",
-    addRule: classNames?.addRule ?? "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-    addGroup: classNames?.addGroup ?? "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-    cloneGroup: classNames?.cloneGroup ?? "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-    ungroup: classNames?.ungroup ?? "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-    lockGroup: classNames?.lockGroup ?? "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-    muteGroup: classNames?.muteGroup ?? "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-    removeGroup: classNames?.removeGroup ?? "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-  }), [classNames]);
 
   return (
     <div
@@ -206,7 +226,7 @@ export const CustomRuleGroup: ComponentType<CustomRuleGroupProps> = (props) => {
               ${isEmployee ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}
             `}
           >
-            <HeaderIcon icon={ChevronDown} />
+            <Layers className="h-4 w-4" aria-hidden="true" />
           </div>
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-foreground">
@@ -223,28 +243,40 @@ export const CustomRuleGroup: ComponentType<CustomRuleGroupProps> = (props) => {
                 <option value="or">OR</option>
               </SelectTrigger>
             )}
+
+            {/* Not checkbox */}
+            {!isRootGroup && (
+              <label className="flex items-center gap-1 text-xs cursor-pointer">
+                <CheckboxTrigger
+                  checked={not}
+                  onChange={(e) => onNotToggleChange?.(e.target.checked)}
+                  disabled={isDisabled}
+                />
+                <span className="text-white/90">Not</span>
+              </label>
+            )}
           </div>
         </div>
 
         <div className="flex items-center gap-2 ml-auto">
           {/* Shift actions for non-root groups */}
-          {!isRootGroup && schema.showShiftActions && (
+          {!isRootGroup && schema?.showShiftActions && (
             <div className="flex items-center gap-1">
               <ControlButton
                 onClick={shiftGroupUp}
-                disabled={shiftUpDisabledFinal || isDisabled}
+                disabled={shiftUpDisabled || isDisabled}
                 aria-label="Move group up"
                 variant="default"
               >
-                <ChevronUp className="h-4 w-4" />
+                <span className="text-xs">↑</span>
               </ControlButton>
               <ControlButton
                 onClick={shiftGroupDown}
-                disabled={shiftDownDisabledFinal || isDisabled}
+                disabled={shiftDownDisabled || isDisabled}
                 aria-label="Move group down"
                 variant="default"
               >
-                <ChevronDown className="h-4 w-4" />
+                <span className="text-xs">↓</span>
               </ControlButton>
             </div>
           )}
@@ -261,10 +293,10 @@ export const CustomRuleGroup: ComponentType<CustomRuleGroupProps> = (props) => {
             </ControlButton>
             <ControlButton
               onClick={addGroup}
-              disabled={isDisabled || (schema.maxLevels ?? Infinity) <= path.length}
+              disabled={isDisabled || (schema?.maxLevels ?? Infinity) <= pathArray.length}
               aria-label="Add Group"
             >
-              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+              <Layers className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Add Group</span>
             </ControlButton>
             {!isRootGroup && (
@@ -282,11 +314,39 @@ export const CustomRuleGroup: ComponentType<CustomRuleGroupProps> = (props) => {
       </div>
 
       <div className={bodyClassName}>
-        {/* Filter out custom props before passing to RuleGroupHeaderComponents */}
-        {(() => {
-          const { employeeFields, employeeQueries, onEmployeeQueryChange, employeeId, ...ruleGroupProps } = props;
-          return <RuleGroupHeaderComponents {...ruleGroupProps} classNames={mergedClassNames} />;
-        })()}
+        {(!rules || rules.length === 0) ? (
+          <p className="text-center text-muted-foreground text-sm py-4">
+            No rules yet. Click "Add Rule" or "Add Group" to start.
+          </p>
+        ) : (
+          rules!.map((rule, index) => {
+            if (typeof rule === "string") return null;
+            
+            if ("combinator" in rule) {
+              // It's a nested group
+              return (
+                <div key={rule.id} className="ml-4 border-l-2 border-primary/20 pl-4">
+                  {controls?.ruleGroup({
+                    ...props,
+                    path: [...pathArray, index],
+                    ruleGroup: rule,
+                  })}
+                </div>
+              );
+            } else {
+              // It's a standard rule
+              return (
+                <div key={rule.id} className="bg-background p-3 rounded border border-border">
+                  {controls?.rule({
+                    ...props,
+                    path: [...pathArray, index],
+                    rule,
+                  })}
+                </div>
+              );
+            }
+          })
+        )}
 
         {showEmployeeQuery && groupEmployeeId && (
           <div className="mt-4 pt-4 border-t border-border/50 rounded-lg bg-muted/30">
@@ -297,12 +357,12 @@ export const CustomRuleGroup: ComponentType<CustomRuleGroupProps> = (props) => {
             <EmployeeQueryBuilder
               employeeFields={employeeFields}
               employeeId={groupEmployeeId}
-              initialQuery={employeeQueries?.get(groupEmployeeId) ?? {
+              initialQuery={(employeeQueries?.get(groupEmployeeId) ?? {
                 id: `employee-${groupEmployeeId}`,
                 combinator: "and",
                 rules: [],
                 not: false,
-              }}
+              }) as RuleGroupType}
               onQueryChange={(query) => onEmployeeQueryChange?.(groupEmployeeId!, query)}
               disabled={isDisabled}
             />
