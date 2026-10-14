@@ -4,18 +4,17 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
 import { EmployeeSelector } from "@/components/query-builder/EmployeeSelector";
-import { CustomQuery } from "@/components/query-builder/CustomQuery";
 import { CustomQueryBuilder } from "@/components/query-builder/CustomQueryBuilder";
 import { NaturalLanguageQuery } from "@/components/query-builder/NaturalLanguageQuery";
+import { CustomRuleGroup } from "@/components/query-builder/CustomRuleGroup";
 import { QueryBuilder } from "react-querybuilder";
 import { fetchDepartmentMetadata, fetchEmployeeMetadata } from "@/lib/api/department";
 import { fetchEmployeeList } from "@/lib/api/employee";
 import { generateQueryId, buildDefaultQuery } from "@/lib/query-builder/fields";
 import { transformMetadata } from "@/lib/query-builder/metadata";
-import type { RuleGroupType, ValueEditorType } from "react-querybuilder";
+import type { RuleGroupType, ValueEditorType, QueryBuilderProps } from "react-querybuilder";
 import { transformEmployeeFieldsToRQB, getEmployeeFieldsForDepartment } from "@/lib/query-builder/employeeFields";
-import { Trash2 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Trash2, Plus } from "lucide-react";
 
 function QueryBuilderApp() {
   // Main query state
@@ -32,11 +31,6 @@ function QueryBuilderApp() {
     ],
     not: false,
   }));
-  
-  // Custom queries (additional independent query builders)
-  const [customQueries, setCustomQueries] = useState<
-    Array<{ id: string; query: RuleGroupType }>
-  >([]);
   
   // Employee-specific query builders - array of employees with their own query state
   const [employeeQueries, setEmployeeQueries] = useState<Array<{
@@ -102,24 +96,6 @@ function QueryBuilderApp() {
     setEmployeeQueries(prev => prev.filter(emp => emp.id !== employeeId));
   }, []);
 
-  const handleAddCustomQuery = useCallback(() => {
-    const newQuery = buildDefaultQuery();
-    setCustomQueries((prev) => [
-      ...prev,
-      { id: generateQueryId(), query: newQuery },
-    ]);
-  }, []);
-
-  const handleCustomQueryChange = useCallback((index: number, query: RuleGroupType) => {
-    setCustomQueries((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, query } : item))
-    );
-  }, []);
-
-  const handleRemoveCustomQuery = useCallback((index: number) => {
-    setCustomQueries((prev) => prev.filter((_, i) => i !== index));
-  }, []);
-
   const combinedMetadata = useMemo(() => {
     if (!departmentMetadata) return null;
 
@@ -127,9 +103,14 @@ function QueryBuilderApp() {
 
     // Add employee fields from all selected employees (prefixed)
     employeeQueries.forEach((emp) => {
-      // We need to fetch or have the fields for each employee's department
-      // For now, we'll just use the department fields as-is
-      // In a real app, you'd fetch per-employee metadata
+      const empFields = getEmployeeFieldsForDepartment(emp.department);
+      combinedFields.push(
+        ...empFields.map((field) => ({
+          ...field,
+          name: `employee_${emp.id}_${field.name}`,
+          label: `[${emp.name}] ${field.label}`,
+        }))
+      );
     });
 
     return transformMetadata({
@@ -138,7 +119,7 @@ function QueryBuilderApp() {
     });
   }, [departmentMetadata, employeeQueries]);
 
-  // Combined fields for NLQ (main + employee + custom queries)
+  // Combined fields for NLQ (main + employee queries)
   const nlqFields = useMemo(() => {
     const fields: Array<{ name: string; label: string }> = [];
     
@@ -186,23 +167,6 @@ function QueryBuilderApp() {
         }
       });
     });
-    
-    // Add custom query rules
-    customQueries.forEach((custom, idx) => {
-      custom.query.rules.forEach((rule) => {
-        if (typeof rule !== "string" && "combinator" in rule) {
-          allRules.push({
-            ...rule,
-            id: `custom-${idx}-${rule.id}`,
-          });
-        } else if (typeof rule !== "string") {
-          allRules.push({
-            ...rule,
-            id: `custom-${idx}-${rule.id}`,
-          });
-        }
-      });
-    });
 
     return {
       id: "combined-nlq",
@@ -210,7 +174,7 @@ function QueryBuilderApp() {
       rules: allRules,
       not: false,
     };
-  }, [combinedQuery, employeeQueries, customQueries]);
+  }, [combinedQuery, employeeQueries]);
 
   // Employee-specific fields for QueryBuilder props
   const getEmployeeFieldsForQB = useCallback((department: string) => {
@@ -223,6 +187,67 @@ function QueryBuilderApp() {
       operators?: string[];
       options?: Array<{ label: string; value: string }>;
     }>;
+  }, []);
+
+  // Common control elements for ALL query builders (unified UX)
+  const commonControlElements = {
+    ruleGroup: CustomRuleGroup,
+  };
+
+  // Common transparent classnames for ALL query builders
+  const transparentClassnames = {
+    ruleGroup: "bg-transparent",
+    rule: "bg-transparent",
+    header: "bg-transparent",
+    body: "bg-transparent",
+  };
+
+  // Build rqbProps for employee query builders
+  const buildEmployeeRQBProps = useCallback((employeeId: string, employeeName: string, department: string, fields: Array<{
+    name: string;
+    label: string;
+    value: string;
+    valueEditorType: ValueEditorType;
+    operators?: string[];
+    options?: Array<{ label: string; value: string }>;
+  }>) => {
+    const rqbOperators = [
+      { name: "=", value: "=", label: "=" },
+      { name: "!=", value: "!=", label: "≠" },
+      { name: "<", value: "<", label: "<" },
+      { name: ">", value: ">", label: ">" },
+      { name: "<=", value: "<=", label: "≤" },
+      { name: ">=", value: ">=", label: "≥" },
+      { name: "contains", value: "contains", label: "Contains" },
+      { name: "beginsWith", value: "beginsWith", label: "Begins with" },
+      { name: "endsWith", value: "endsWith", label: "Ends with" },
+      { name: "null", value: "null", label: "Is null" },
+      { name: "notNull", value: "notNull", label: "Is not null" },
+      { name: "in", value: "in", label: "In" },
+      { name: "notIn", value: "notIn", label: "Not in" },
+    ];
+
+    const rqbCombinators = [
+      { name: "and", value: "and", label: "AND" },
+      { name: "or", value: "or", label: "OR" },
+    ];
+
+    return {
+      qbId: `employee-qb-${employeeId}`,
+      fields: fields,
+      operators: rqbOperators,
+      combinators: rqbCombinators,
+      idGenerator: () => `emp-${employeeId}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      showCloneButtons: false,
+      showLockButtons: false,
+      showNotToggle: true,
+      showCombinatorsBetweenRules: false,
+      resetOnFieldChange: false,
+      resetOnOperatorChange: false,
+      autoSelectField: true,
+      controlElements: commonControlElements as any,
+      controlClassnames: transparentClassnames,
+    } as QueryBuilderProps<RuleGroupType, typeof fields[number], typeof rqbOperators[number], typeof rqbCombinators[number]>;
   }, []);
 
   return (
@@ -246,241 +271,68 @@ function QueryBuilderApp() {
       <main className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-5xl px-8 py-8">
           <div className="space-y-6">
-            {/* GLOBAL NLQ BLOCK - Rendered ONCE at the top */}
+            {/* 1. Natural Language Query Block (Top) */}
             <NaturalLanguageQuery
               query={flattenedQueryForNLQ}
               fields={nlqFields}
-              className="mb-6"
+              className="mb-4"
             />
 
-            {/* MAIN QUERY BUILDER */}
-            <CustomQueryBuilder
-              description="Department Query"
-              metadata={combinedMetadata}
-              query={combinedQuery}
-              onQueryChange={handleCombinedQueryChange}
-              isLoading={isDepartmentLoading}
-              error={departmentError instanceof Error ? departmentError : null}
-              showNLQ={false}
-            />
+            {/* 2. Main Query Builder (Middle) */}
+            <div className="rounded-xl border border-border/50 bg-transparent overflow-hidden">
+              <CustomQueryBuilder
+                description="Department Query"
+                metadata={combinedMetadata}
+                query={combinedQuery}
+                onQueryChange={handleCombinedQueryChange}
+                isLoading={isDepartmentLoading}
+                error={departmentError instanceof Error ? departmentError : null}
+                showNLQ={false}
+              />
+            </div>
 
-            {/* EMPLOYEE QUERY BUILDERS - Separate independent builders below main */}
+            {/* 3. Employee Query Builders (Flow directly below the main builder) */}
             {employeeQueries.length > 0 && (
-              <div className="mt-8 space-y-6">
-                <h2 className="text-lg font-semibold uppercase tracking-wider text-muted-foreground">
-                  Employee Query Builders
-                </h2>
-                {employeeQueries.map((emp) => (
-                  <Card key={emp.id} className="bg-transparent border-border/50">
-                    <CardContent className="p-4">
-                      {/* Employee Query Builder Header */}
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/20 text-primary">
-                            <Trash2 className="h-4 w-4" aria-hidden="true" />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-foreground">Query for: {emp.name}</h3>
-                            <p className="text-sm text-muted-foreground">Department: {emp.department}</p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => removeEmployeeQuery(emp.id)}
-                          className="text-destructive hover:text-destructive/80 transition-colors"
-                          aria-label={`Remove query builder for ${emp.name}`}
-                        >
-                          <Trash2 className="h-5 w-5" aria-hidden="true" />
-                        </button>
+              <div className="space-y-4">
+                {employeeQueries.map((emp) => {
+                  const empFields = getEmployeeFieldsForQB(emp.department);
+                  const rqbProps = buildEmployeeRQBProps(emp.id, emp.name, emp.department, empFields);
+                  
+                  return (
+                    <div key={emp.id} className="rounded-xl border border-border/50 bg-transparent overflow-hidden">
+                      {/* Employee Query Builder with unified CustomRuleGroup */}
+                      <div className="bg-transparent rounded-lg border border-border/50 overflow-hidden">
+                        <QueryBuilder
+                          {...rqbProps}
+                          query={emp.query}
+                          onQueryChange={(newQuery) => handleEmployeeQueryChange(emp.id, newQuery)}
+                        />
                       </div>
-
-                      {/* Employee-specific QueryBuilder */}
-                      <EmployeeQueryBuilder
-                        employeeId={emp.id}
-                        employeeName={emp.name}
-                        department={emp.department}
-                        query={emp.query}
-                        onQueryChange={handleEmployeeQueryChange}
-                        fields={getEmployeeFieldsForQB(emp.department)}
-                      />
-                    </CardContent>
-                  </Card>
-                ))}
+                    </div>
+                  );
+                })}
               </div>
             )}
 
-            {/* CUSTOM QUERIES */}
-            {customQueries.map((item, index) => (
-              <CustomQuery
-                key={item.id}
-                id={item.id}
-                title={`Custom Query ${index + 1}`}
-                config={departmentMetadata ? {
-                  fields: departmentMetadata.fields.map((f) => ({
-                    name: f.name,
-                    label: f.label,
-                    valueEditorType: f.type === "string" ? "text" : f.type === "number" ? "number" : f.type === "boolean" ? "checkbox" : f.type === "date" ? "date" : "select",
-                    operators: f.operators,
-                    options: f.options,
-                  })),
-                  fieldMap: new Map(departmentMetadata.fields.map((f) => [
-                    f.name,
-                    {
-                      name: f.name,
-                      label: f.label,
-                      valueEditorType: f.type === "string" ? "text" : f.type === "number" ? "number" : f.type === "boolean" ? "checkbox" : f.type === "date" ? "date" : "select",
-                      options: f.options,
-                    },
-                  ])),
-                  defaultCombinator: "and",
-                } : {
-                  fields: [],
-                  fieldMap: new Map(),
-                  defaultCombinator: "and",
-                }}
-                query={item.query}
-                onQueryChange={(q) => handleCustomQueryChange(index, q)}
-                onRemove={() => handleRemoveCustomQuery(index)}
-              />
-            ))}
-
-            {/* ADD CUSTOM QUERY BUTTON */}
-            <div>
-              <button
-                type="button"
-                onClick={handleAddCustomQuery}
-                className="flex items-center gap-2 rounded-lg border border-dashed border-input bg-transparent px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-              >
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-                Add Custom Query
-              </button>
+            {/* 4. Debug State (Bottom) */}
+            <div className="mt-8 rounded-lg border bg-card p-5">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                Debug / Final Query State
+              </h3>
+              <pre className="mt-3 overflow-x-auto rounded-lg bg-muted p-4 text-xs text-foreground">
+                {JSON.stringify(
+                  {
+                    combined: combinedQuery,
+                    employeeQueries: employeeQueries.map(e => ({ id: e.id, name: e.name, query: e.query })),
+                  },
+                  null,
+                  2
+                )}
+              </pre>
             </div>
-          </div>
-
-          {/* DEBUG / FINAL QUERY STATE */}
-          <div className="mt-8 rounded-lg border bg-card p-5">
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-              Debug / Final Query State
-            </h3>
-            <pre className="mt-3 overflow-x-auto rounded-lg bg-muted p-4 text-xs text-foreground">
-              {JSON.stringify(
-                {
-                  combined: combinedQuery,
-                  employeeQueries: employeeQueries.map(e => ({ id: e.id, name: e.name, query: e.query })),
-                  custom: customQueries.map((q) => q.query),
-                },
-                null,
-                2
-              )}
-            </pre>
           </div>
         </div>
       </main>
-    </div>
-  );
-}
-
-// Separate Employee Query Builder component
-function EmployeeQueryBuilder({
-  employeeId,
-  employeeName,
-  department,
-  query,
-  onQueryChange,
-  fields,
-}: {
-  employeeId: string;
-  employeeName: string;
-  department: string;
-  query: RuleGroupType;
-  onQueryChange: (employeeId: string, query: RuleGroupType) => void;
-  fields: Array<{
-    name: string;
-    label: string;
-    value: string;
-    valueEditorType: ValueEditorType;
-    operators?: string[];
-    options?: Array<{ label: string; value: string }>;
-  }>;
-}) {
-  const [localQuery, setLocalQuery] = useState<RuleGroupType>(query);
-
-  useEffect(() => {
-    setLocalQuery(query);
-  }, [query]);
-
-  const handleChange = useCallback((newQuery: RuleGroupType) => {
-    setLocalQuery(newQuery);
-    onQueryChange(employeeId, newQuery);
-  }, [employeeId, onQueryChange]);
-
-  const rqbOperators = useMemo(
-    () => [
-      { name: "=", value: "=", label: "=" },
-      { name: "!=", value: "!=", label: "≠" },
-      { name: "<", value: "<", label: "<" },
-      { name: ">", value: ">", label: ">" },
-      { name: "<=", value: "<=", label: "≤" },
-      { name: ">=", value: ">=", label: "≥" },
-      { name: "contains", value: "contains", label: "Contains" },
-      { name: "beginsWith", value: "beginsWith", label: "Begins with" },
-      { name: "endsWith", value: "endsWith", label: "Ends with" },
-      { name: "null", value: "null", label: "Is null" },
-      { name: "notNull", value: "notNull", label: "Is not null" },
-      { name: "in", value: "in", label: "In" },
-      { name: "notIn", value: "notIn", label: "Not in" },
-    ],
-    []
-  );
-
-  const rqbCombinators = useMemo(
-    () => [
-      { name: "and", value: "and", label: "AND" },
-      { name: "or", value: "or", label: "OR" },
-    ],
-    []
-  );
-
-  const builderId = `employee-qb-${employeeId}`;
-
-  const rqbProps = {
-    qbId: builderId,
-    query: localQuery,
-    onQueryChange: handleChange,
-    fields: fields,
-    operators: rqbOperators,
-    combinators: rqbCombinators,
-    idGenerator: () => `emp-${employeeId}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-    showCloneButtons: false,
-    showLockButtons: false,
-    showNotToggle: true,
-    showCombinatorsBetweenRules: false,
-    resetOnFieldChange: false,
-    resetOnOperatorChange: false,
-    autoSelectField: true,
-    controlClassnames: {
-      ruleGroup: "bg-transparent",
-      rule: "bg-transparent",
-      header: "bg-transparent",
-      body: "bg-transparent",
-    },
-  };
-
-  return (
-    <div className="bg-transparent rounded-lg border border-border/50 overflow-hidden">
-      <QueryBuilder {...rqbProps} />
     </div>
   );
 }
