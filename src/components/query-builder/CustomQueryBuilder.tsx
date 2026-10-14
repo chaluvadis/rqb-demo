@@ -13,12 +13,15 @@ import { operators, combinators, generateQueryId } from "@/lib/query-builder/fie
 import { buildDefaultQuery } from "@/lib/query-builder/fields";
 import { getValueEditorTypeForField, getValuesForField } from "@/lib/query-builder/metadata";
 import { RemoveGroupAction, RemoveRuleAction, CustomRuleGroupBodyElements, NullAction } from "./QueryBuilderActions";
+import { CustomRuleGroup } from "./CustomRuleGroup";
+import { NaturalLanguageQuery } from "./NaturalLanguageQuery";
+import { transformEmployeeFieldsToRQB, getEmployeeFieldsForDepartment } from "@/lib/query-builder/employeeFields";
 
 // Keep a local re-export so query-builder imports remain stable.
 export { operators, combinators };
 
 export interface CustomQueryBuilderProps {
-  title: string;
+  title?: string;
   metadata: QueryBuilderConfig | null;
   defaultQuery?: RuleGroupType | null;
   onQueryChange: (query: RuleGroupType) => void;
@@ -28,6 +31,16 @@ export interface CustomQueryBuilderProps {
   description?: string;
   actions?: React.ReactNode;
   emptyState?: React.ReactNode;
+  employeeFields?: Array<{
+    name: string;
+    label: string;
+    valueEditorType: ValueEditorType;
+    operators?: string[];
+    options?: Array<{ label: string; value: string }>;
+  }>;
+  employeeDepartment?: string;
+  onEmployeeQueryChange?: (employeeId: string, query: RuleGroupType) => void;
+  showNLQ?: boolean;
 }
 
 let builderCounter = 0;
@@ -43,11 +56,18 @@ export function CustomQueryBuilder({
   description,
   actions,
   emptyState,
+  employeeFields,
+  employeeDepartment,
+  onEmployeeQueryChange,
+  showNLQ = true,
 }: CustomQueryBuilderProps) {
   const isControlled = query !== undefined;
   const [internalQuery, setInternalQuery] = useState<RuleGroupType>(() =>
     defaultQuery ?? buildDefaultQuery()
   );
+
+  // State for employee-specific secondary query builders
+  const [employeeQueries, setEmployeeQueries] = useState<Map<string, RuleGroupType>>(new Map());
 
   const activeQuery = isControlled ? query : internalQuery;
 
@@ -59,6 +79,18 @@ export function CustomQueryBuilder({
       onQueryChange(newQuery);
     },
     [isControlled, onQueryChange]
+  );
+
+  const handleEmployeeQueryChange = useCallback(
+    (employeeId: string, employeeQuery: RuleGroupType) => {
+      setEmployeeQueries((prev) => {
+        const next = new Map(prev);
+        next.set(employeeId, employeeQuery);
+        return next;
+      });
+      onEmployeeQueryChange?.(employeeId, employeeQuery);
+    },
+    [onEmployeeQueryChange]
   );
 
   const getValueEditorType = useCallback(
@@ -109,7 +141,36 @@ export function CustomQueryBuilder({
     return `qb-${builderCounter}`;
   }, []);
 
-  const rqbProps: QueryBuilderProps<RuleGroupType, typeof rqbFields[number], typeof rqbOperators[number], typeof rqbCombinators[number]> = {
+  const resolvedEmployeeFields = useMemo(() => {
+    if (employeeFields) return employeeFields;
+    if (employeeDepartment) return transformEmployeeFieldsToRQB(getEmployeeFieldsForDepartment(employeeDepartment));
+    return [];
+  }, [employeeFields, employeeDepartment]);
+
+  const nlqFields = useMemo(() => {
+    if (!metadata?.fields) return [];
+    return metadata.fields.map((field) => ({ name: field.name, label: field.label }));
+  }, [metadata]);
+
+  // Extract employee IDs from the query to pass to CustomRuleGroup
+  const employeeIdsInQuery = useMemo(() => {
+    const ids = new Set<string>();
+    const extractEmployeeIds = (group: RuleGroupType) => {
+      group.rules.forEach((rule) => {
+        if (typeof rule !== "string" && "combinator" in rule) {
+          extractEmployeeIds(rule);
+        } else if (typeof rule !== "string" && rule.field?.startsWith("employee_")) {
+          // Extract employee ID from field name like "employee_employeeId_fullName"
+          const match = rule.field.match(/^employee_([^_]+)_/);
+          if (match) ids.add(match[1]);
+        }
+      });
+    };
+    extractEmployeeIds(activeQuery);
+    return ids;
+  }, [activeQuery]);
+
+  const rqbProps = {
     qbId: builderId,
     query: activeQuery,
     onQueryChange: handleQueryChange,
@@ -132,8 +193,19 @@ export function CustomQueryBuilder({
       addRuleAction: NullAction,
       addGroupAction: NullAction,
       ruleGroupBodyElements: CustomRuleGroupBodyElements,
+      ruleGroup: CustomRuleGroup as any,
     },
-  };
+    controlClassnames: {
+      ruleGroup: "bg-transparent",
+      rule: "bg-transparent",
+      header: "bg-transparent",
+      body: "bg-transparent",
+    },
+    // Pass employee fields and queries to custom ruleGroup
+    employeeFields: resolvedEmployeeFields,
+    employeeQueries,
+    onEmployeeQueryChange: handleEmployeeQueryChange,
+  } as QueryBuilderProps<RuleGroupType, typeof rqbFields[number], typeof rqbOperators[number], typeof rqbCombinators[number]>;
 
   const renderContent = () => {
     if (isLoading) {
@@ -165,21 +237,36 @@ export function CustomQueryBuilder({
       );
     }
 
-    return <QueryBuilder {...rqbProps} />;
+    return (
+      <div className="space-y-4 bg-transparent">
+        {showNLQ && (
+          <NaturalLanguageQuery
+            query={activeQuery}
+            fields={nlqFields}
+            className="mb-2"
+          />
+        )}
+        <div className="bg-transparent rounded-xl border border-border/50 overflow-hidden">
+          <QueryBuilder {...rqbProps} />
+        </div>
+      </div>
+    );
   };
 
   return (
-    <Card className="rounded-xl shadow-sm">
-      <CardHeader className="flex flex-row items-center justify-between border-b px-5 py-4">
-        <div>
-          <CardTitle className="text-lg font-semibold">{title}</CardTitle>
-          {description && (
-            <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
-          )}
-        </div>
-        {actions && <div className="flex items-center gap-2">{actions}</div>}
-      </CardHeader>
-      <CardContent className="p-5">
+    <Card className="rounded-xl shadow-sm bg-transparent border-border/50">
+      {title && (
+        <CardHeader className="flex flex-row items-center justify-between border-b border-border/50 px-5 py-4 bg-transparent">
+          <div>
+            <CardTitle className="text-lg font-semibold">{title}</CardTitle>
+            {description && (
+              <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
+            )}
+          </div>
+          {actions && <div className="flex items-center gap-2">{actions}</div>}
+        </CardHeader>
+      )}
+      <CardContent className="p-5 bg-transparent">
         {renderContent()}
       </CardContent>
     </Card>

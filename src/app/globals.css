@@ -133,11 +133,11 @@
 
 /* React Query Builder UX improvements */
 .query-builder {
-  @apply rounded-lg border border-border bg-background p-4;
+  @apply rounded-lg border border-border bg-transparent p-4;
 }
 
 .query-builder .rule-group {
-  @apply rounded-md border border-border bg-background p-4;
+  @apply rounded-md border border-border bg-transparent p-4;
 }
 
 .query-builder .rule {
@@ -177,4 +177,117 @@
 .query-builder .add-rule,
 .query-builder .add-group {
   @apply inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground;
+}
+
+/* Modern Query Builder Custom Styles */
+.rqb-modern {
+  @apply bg-transparent;
+}
+
+.rqb-modern .rule-group {
+  @apply bg-transparent border-border/50 rounded-xl overflow-hidden shadow-sm;
+}
+
+.rqb-modern .rule-group-header {
+  @apply bg-gradient-to-r from-primary/5 to-primary/10 border-b border-border/50 px-4 py-3 rounded-t-xl;
+}
+
+.rqb-modern .rule-group-body {
+  @apply p-4 bg-transparent;
+}
+
+.rqb-modern .rule {
+  @apply bg-muted/30 border-border/50 rounded-lg p-3;
+}
+
+.rqb-modern .rule select,
+.rqb-modern .rule input,
+.rqb-modern .rule textarea {
+  @apply bg-background border-border rounded-md;
+}
+
+.rqb-modern .combinator-selector {
+  @apply bg-background border-border rounded-md;
+}
+
+.rqb-modern .field-selector,
+.rqb-modern .operator-selector,
+.rqb-modern .value-selector {
+  @apply bg-background border-border rounded-md;
+}
+
+.rqb-modern button {
+  @apply transition-all duration-200;
+}
+
+.rqb-modern .group-actions {
+  @apply gap-1.5;
+}
+
+.rqb-modern .group-actions button {
+  @apply h-8 w-8 rounded-lg;
+}
+
+.rqb-modern .group-actions button:hover {
+  @apply bg-primary/10 text-primary;
+}
+
+.rqb-modern .group-actions button:focus-visible {
+  @apply outline-none ring-2 ring-ring;
+}
+
+/* Dropdown menu styling for group actions */
+.rqb-modern [data-radix-dropdown-menu-content] {
+  @apply bg-popover border-border shadow-lg rounded-lg;
+}
+
+.rqb-modern [data-radix-dropdown-menu-item] {
+  @apply text-sm px-3 py-2;
+}
+
+.rqb-modern [data-radix-dropdown-menu-item]:focus {
+  @apply bg-accent text-accent-foreground;
+}
+
+.rqb-modern [data-radix-dropdown-menu-separator] {
+  @apply border-border my-1;
+}
+
+/* Natural Language Query block */
+.nlq-block {
+  @apply bg-gradient-to-br from-primary/5 via-background to-background border-primary/20 rounded-xl shadow-sm;
+}
+
+.nlq-block pre,
+.nlq-block code {
+  @apply font-mono text-sm bg-transparent;
+}
+
+.nlq-content {
+  @apply whitespace-pre-wrap break-words leading-relaxed;
+}
+
+/* Employee query builder section */
+.employee-query-section {
+  @apply mt-4 pt-4 border-t border-border/50 rounded-lg bg-muted/30;
+}
+
+.employee-query-header {
+  @apply flex items-center gap-2 px-2 py-2 bg-primary/5 rounded-lg border border-primary/20 mb-3;
+}
+
+.employee-query-fields {
+  @apply ml-2 border-l-2 border-primary/20 pl-4 space-y-2;
+}
+
+.employee-query-field {
+  @apply flex items-center gap-2 text-sm text-muted-foreground;
+}
+
+.employee-query-field-name {
+  @apply font-mono text-xs px-2 py-1 bg-muted rounded;
+}
+
+.employee-query-field-type {
+  @apply text-xs px-2 py-0.5 bg-primary/10 text-primary rounded;
 }

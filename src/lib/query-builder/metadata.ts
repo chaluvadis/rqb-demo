@@ -46,23 +46,6 @@ export function transformMetadata(metadata: QueryMetadataResponse) {
   };
 }
 
-export function getDefaultQueryForMetadata(metadata: QueryMetadataResponse) {
-  const combinator = metadata.defaultCombinator ?? "and";
-  return {
-    id: crypto.randomUUID(),
-    combinator,
-    rules: [
-      {
-        field: "",
-        operator: "=",
-        value: "",
-        id: crypto.randomUUID(),
-      },
-    ],
-    not: false,
-  };
-}
-
 export function getValueEditorTypeForField(
   fieldName: string,
   fieldMap: Map<string, { valueEditorType: string }>

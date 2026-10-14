@@ -5,7 +5,8 @@ import type { RuleGroupType } from "react-querybuilder";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CustomQueryBuilder } from "./CustomQueryBuilder";
 import type { QueryBuilderConfig } from "@/lib/query-builder/types";
-import { transformMetadata, getDefaultQueryForMetadata } from "@/lib/query-builder/metadata";
+import { transformMetadata } from "@/lib/query-builder/metadata";
+import { buildDefaultQuery } from "@/lib/query-builder/fields";
 
 export interface DepartmentQueryProps {
   metadata: {
@@ -48,16 +49,7 @@ export function DepartmentQuery({
 
   const defaultQuery: RuleGroupType | null = useMemo(() => {
     if (!metadata) return null;
-    return getDefaultQueryForMetadata({
-      fields: metadata.fields as Array<{
-        name: string;
-        label: string;
-        type: "string" | "number" | "boolean" | "date" | "select";
-        operators?: string[];
-        options?: Array<{ label: string; value: string }>;
-      }>,
-      defaultCombinator: "and",
-    }) as RuleGroupType;
+    return buildDefaultQuery("and");
   }, [metadata]);
 
   return (

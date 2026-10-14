@@ -44,6 +44,7 @@ export function CustomQuery({
       query={query}
       onQueryChange={onQueryChange}
       actions={actions}
+      showNLQ={false}
     />
   );
 }
