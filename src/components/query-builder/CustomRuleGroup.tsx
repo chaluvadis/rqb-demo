@@ -1,23 +1,8 @@
-"use client";
+import React from "react";
+import { RuleGroupProps, RuleGroupType, RuleType, Path, ValueEditorType, QueryBuilderProps, QueryBuilder } from "react-querybuilder";
+import { Plus, Layers, Trash2 } from "lucide-react";
 
-import { useState, useMemo, useCallback, type ComponentType } from "react";
-import {
-  Plus,
-  Trash2,
-  Layers,
-  type LucideIcon,
-} from "lucide-react";
-import {
-  type RuleGroupProps,
-  type RuleGroupType,
-  type RuleType,
-  type Path,
-  type ValueEditorType,
-  type QueryBuilderProps,
-  QueryBuilder,
-} from "react-querybuilder";
-
-interface CustomRuleGroupProps {
+interface CustomRuleGroupProps extends RuleGroupProps {
   employeeFields?: Array<{
     name: string;
     label: string;
@@ -28,39 +13,25 @@ interface CustomRuleGroupProps {
   employeeQueries?: Map<string, RuleGroupType>;
   onEmployeeQueryChange?: (employeeId: string, query: RuleGroupType) => void;
   employeeId?: string;
-  // Properties from RuleGroupProps that we use
-  ruleGroup?: RuleGroupType;
-  path?: Path;
-  schema?: {
-    maxLevels?: number;
-    showShiftActions?: boolean;
-    showCloneButtons?: boolean;
-    showUngroupButtons?: boolean;
-  };
-  classNames?: Record<string, string>;
-  translations?: Record<string, string>;
+  // Explicitly add properties from RuleGroupProps that we use
   addRule?: () => void;
   addGroup?: () => void;
   removeGroup?: () => void;
-  cloneGroup?: () => void;
-  ungroup?: () => void;
-  shiftGroupUp?: () => void;
-  shiftGroupDown?: () => void;
-  shiftUpDisabled?: boolean;
-  shiftDownDisabled?: boolean;
-  disabled?: boolean;
   onCombinatorChange?: (value: string) => void;
-  onNotToggleChange?: (value: boolean) => void;
+  onNotChange?: (value: boolean) => void;
   controls?: {
     ruleGroup: (props: CustomRuleGroupProps) => React.ReactNode;
     rule: (props: any) => React.ReactNode;
+    // Action functions might be in controls
+    addRule?: () => void;
+    addGroup?: () => void;
+    removeGroup?: () => void;
+    onCombinatorChange?: (value: string) => void;
+    onNotChange?: (value: boolean) => void;
   };
-  rules?: Array<RuleType | RuleGroupType | string>;
-  combinator?: string;
-  not?: boolean;
 }
 
-function hasEmployeeFields(ruleGroup: RuleGroupType, employeeFields?: Array<any>): boolean {
+function hasEmployeeFields(ruleGroup: RuleGroupType | { rules: any[]; combinator?: string; not?: boolean }, employeeFields?: Array<any>): boolean {
   if (employeeFields && employeeFields.length > 0) {
     return true;
   }
@@ -74,98 +45,46 @@ function hasEmployeeFields(ruleGroup: RuleGroupType, employeeFields?: Array<any>
   );
 }
 
-const ControlButton = ({ 
-  children, 
-  className = "", 
-  onClick, 
-  disabled = false,
-  variant = "default",
-  ...props 
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "default" | "destructive" }) => {
-  const baseStyles = "inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors";
-  const variants = {
-    default: "bg-primary/10 text-primary hover:bg-primary/20",
-    destructive: "bg-destructive/10 text-destructive hover:bg-destructive/20",
-  };
-  
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={`${baseStyles} ${variants[variant]} ${className}`}
-      {...props}
-    >
-      {children}
-    </button>
-  );
-};
-
-const SelectTrigger = ({ 
-  value, 
-  onChange, 
-  children,
-  className = "",
-  ...props 
-}: React.SelectHTMLAttributes<HTMLSelectElement>) => (
-  <select
-    value={value}
-    onChange={onChange}
-    className={`bg-primary/10 text-primary border border-primary/20 rounded-lg px-2 py-1 text-xs font-medium ${className}`}
-    {...props}
-  >
-    {children}
-  </select>
-);
-
-const CheckboxTrigger = ({ 
-  checked, 
-  onChange, 
-  className = "",
-  ...props 
-}: React.InputHTMLAttributes<HTMLInputElement>) => (
-  <input
-    type="checkbox"
-    checked={checked}
-    onChange={onChange}
-    className={`rounded border-gray-300 text-primary focus:ring-primary ${className}`}
-    {...props}
-  />
-);
-
-export const CustomRuleGroup: ComponentType<CustomRuleGroupProps> = (props) => {
+export const CustomRuleGroup: React.FC<CustomRuleGroupProps> = (props) => {
   const {
-    ruleGroup,
     path,
-    schema,
-    classNames,
-    translations,
+    rules,
+    combinator,
+    not,
     addRule,
     addGroup,
     removeGroup,
-    cloneGroup,
-    ungroup,
-    shiftGroupUp,
-    shiftGroupDown,
-    shiftUpDisabled,
-    shiftDownDisabled,
-    disabled,
     onCombinatorChange,
-    onNotToggleChange,
+    onNotChange,
+    controls,
+    disabled,
     employeeFields,
     employeeQueries,
     onEmployeeQueryChange,
     employeeId,
-    controls,
-    rules,
-    combinator,
-    not,
     ...rest
   } = props;
 
+  // Debug: Log all props and controls to understand what's available
+  React.useEffect(() => {
+    console.log('CustomRuleGroup ALL PROPS:', Object.keys(props));
+    console.log('CustomRuleGroup controls:', controls ? Object.keys(controls) : 'none');
+    console.log('CustomRuleGroup addRule:', typeof addRule);
+    console.log('CustomRuleGroup addGroup:', typeof addGroup);
+    console.log('CustomRuleGroup removeGroup:', typeof removeGroup);
+    console.log('CustomRuleGroup onCombinatorChange:', typeof onCombinatorChange);
+    console.log('CustomRuleGroup onNotChange:', typeof onNotChange);
+    console.log('CustomRuleGroup controls.ruleGroup:', typeof controls?.ruleGroup);
+    console.log('CustomRuleGroup controls.rule:', typeof controls?.rule);
+    console.log('CustomRuleGroup controls.addRule:', typeof controls?.addRule);
+    console.log('CustomRuleGroup controls.addGroup:', typeof controls?.addGroup);
+    console.log('CustomRuleGroup controls.removeGroup:', typeof controls?.removeGroup);
+    console.log('CustomRuleGroup controls.onCombinatorChange:', typeof controls?.onCombinatorChange);
+    console.log('CustomRuleGroup controls.onNotChange:', typeof controls?.onNotChange);
+  }, [props]);
+
+  const ruleGroupObj = props.ruleGroup ?? { rules: [], combinator: "and" as const, not: false } as RuleGroupType;
   const pathArray = path ?? [];
-  const ruleGroupObj = ruleGroup ?? { rules: [], combinator: "and", not: false };
-  
   const isRootGroup = pathArray.length === 0;
   const isEmployee = hasEmployeeFields(ruleGroupObj, employeeFields);
   const showEmployeeQuery = isEmployee && employeeFields && employeeFields.length > 0;
@@ -175,177 +94,181 @@ export const CustomRuleGroup: ComponentType<CustomRuleGroupProps> = (props) => {
   // Check if this group represents a specific employee
   const groupEmployeeId = employeeId || (pathArray.length === 1 ? String(pathArray[0]) : null);
 
-  const ruleGroupClassName = [
-    "rounded-xl",
-    "border",
-    "bg-transparent",
-    "shadow-sm",
-    "overflow-hidden",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  // Try to get action functions from controls object
+  const controlsAddRule = controls?.addRule;
+  const controlsAddGroup = controls?.addGroup;
+  const controlsRemoveGroup = controls?.removeGroup;
+  const controlsOnCombinatorChange = controls?.onCombinatorChange;
+  const controlsOnNotChange = controls?.onNotChange;
 
-  const headerClassName = [
-    "flex",
-    "items-center",
-    "justify-between",
-    "gap-3",
-    "px-4",
-    "py-3",
-    "bg-gradient-to-r",
-    "from-primary/5",
-    "to-primary/10",
-    "border-b",
-    "border-border/50",
-    "rounded-t-xl",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const handleAddRule = () => {
+    console.log('Add Rule clicked', { addRule: typeof addRule, controlsAddRule: typeof controlsAddRule });
+    if (typeof addRule === 'function') {
+      addRule();
+    } else if (typeof controlsAddRule === 'function') {
+      controlsAddRule();
+    } else {
+      console.error('addRule is not a function anywhere');
+    }
+  };
 
-  const bodyClassName = [
-    classNames?.body,
-    "p-4",
-    "space-y-3",
-    "bg-gray-50/50",
-    "min-h-[50px]",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const handleAddGroup = () => {
+    console.log('Add Group clicked', { addGroup: typeof addGroup, controlsAddGroup: typeof controlsAddGroup });
+    if (typeof addGroup === 'function') {
+      addGroup();
+    } else if (typeof controlsAddGroup === 'function') {
+      controlsAddGroup();
+    } else {
+      console.error('addGroup is not a function anywhere');
+    }
+  };
+
+  const handleRemoveGroup = () => {
+    console.log('Remove Group clicked', { removeGroup: typeof removeGroup, controlsRemoveGroup: typeof controlsRemoveGroup });
+    if (typeof removeGroup === 'function') {
+      removeGroup();
+    } else if (typeof controlsRemoveGroup === 'function') {
+      controlsRemoveGroup();
+    } else {
+      console.error('removeGroup is not a function anywhere');
+    }
+  };
+
+  const handleCombinatorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    if (typeof onCombinatorChange === 'function') {
+      onCombinatorChange(e.target.value);
+    } else if (typeof controlsOnCombinatorChange === 'function') {
+      controlsOnCombinatorChange(e.target.value);
+    }
+  };
+
+  const handleNotChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (typeof onNotChange === 'function') {
+      onNotChange(e.target.checked);
+    } else if (typeof controlsOnNotChange === 'function') {
+      controlsOnNotChange(e.target.checked);
+    }
+  };
 
   return (
-    <div
-      className={ruleGroupClassName}
-      data-testid="rule-group"
-      data-path={JSON.stringify(path)}
-    >
-      <div className={headerClassName}>
+    <div className="query-group-container mb-4 rounded-xl overflow-hidden border border-border bg-transparent shadow-sm">
+      
+      {/* MODERN GRADIENT HEADER */}
+      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 px-5 py-3.5 flex items-center justify-between">
+        
+        {/* Left Side - Group Info */}
         <div className="flex items-center gap-3">
-          <div
-            className={`
-              flex h-8 w-8 shrink-0 items-center justify-center rounded-lg
-              ${isEmployee ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}
-            `}
-          >
-            <Layers className="h-4 w-4" aria-hidden="true" />
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-foreground">
-              {isEmployee ? `Employee: ${groupEmployeeId ?? "Unknown"}` : `Group (${currentCombinator.toUpperCase()})`}
-            </span>
-            {/* Combinator selector for non-root groups */}
-            {!isRootGroup && (
-              <SelectTrigger
-                value={currentCombinator}
-                onChange={(e) => onCombinatorChange?.(e.target.value)}
-                disabled={isDisabled}
-              >
-                <option value="and">AND</option>
-                <option value="or">OR</option>
-              </SelectTrigger>
-            )}
-
-            {/* Not checkbox */}
-            {!isRootGroup && (
-              <label className="flex items-center gap-1 text-xs cursor-pointer">
-                <CheckboxTrigger
-                  checked={not}
-                  onChange={(e) => onNotToggleChange?.(e.target.checked)}
-                  disabled={isDisabled}
-                />
-                <span className="text-white/90">Not</span>
-              </label>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 ml-auto">
-          {/* Shift actions for non-root groups */}
-          {!isRootGroup && schema?.showShiftActions && (
-            <div className="flex items-center gap-1">
-              <ControlButton
-                onClick={shiftGroupUp}
-                disabled={shiftUpDisabled || isDisabled}
-                aria-label="Move group up"
-                variant="default"
-              >
-                <span className="text-xs">↑</span>
-              </ControlButton>
-              <ControlButton
-                onClick={shiftGroupDown}
-                disabled={shiftDownDisabled || isDisabled}
-                aria-label="Move group down"
-                variant="default"
-              >
-                <span className="text-xs">↓</span>
-              </ControlButton>
-            </div>
+          <Layers className="w-4 h-4 text-white/80" />
+          <span className="font-semibold text-white text-sm">
+            {isEmployee ? `Employee: ${groupEmployeeId ?? "Unknown"}` : `Group (${currentCombinator.toUpperCase()})`}
+          </span>
+          
+          {/* Combinator Selector */}
+          {!isRootGroup && (
+            <select
+              value={currentCombinator}
+              onChange={handleCombinatorChange}
+              disabled={isDisabled}
+              className="bg-white/20 text-white border border-white/30 rounded-md px-2.5 py-1 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-white/50 disabled:opacity-50 cursor-pointer"
+            >
+              <option value="and" className="text-gray-900">AND</option>
+              <option value="or" className="text-gray-900">OR</option>
+            </select>
           )}
 
-          {/* Main controls: Add Rule, Add Group, Delete */}
-          <div className="flex items-center gap-2">
-            <ControlButton
-              onClick={addRule}
-              disabled={isDisabled}
-              aria-label="Add Rule"
-            >
-              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>Add Rule</span>
-            </ControlButton>
-            <ControlButton
-              onClick={addGroup}
-              disabled={isDisabled || (schema?.maxLevels ?? Infinity) <= pathArray.length}
-              aria-label="Add Group"
-            >
-              <Layers className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>Add Group</span>
-            </ControlButton>
-            {!isRootGroup && (
-              <ControlButton
-                onClick={removeGroup}
+          {/* NOT Toggle */}
+          {!isRootGroup && (
+            <label className="flex items-center gap-1.5 text-xs text-white/90 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={not}
+                onChange={handleNotChange}
                 disabled={isDisabled}
-                aria-label="Delete Group"
-                variant="destructive"
-              >
-                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-              </ControlButton>
-            )}
-          </div>
+                className="w-3.5 h-3.5 rounded border-white/30 text-indigo-600 focus:ring-white/50 disabled:opacity-50"
+              />
+              <span>Not</span>
+            </label>
+          )}
+        </div>
+
+        {/* Right Side - Action Buttons */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleAddRule}
+            disabled={isDisabled}
+            className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 active:bg-white/40 text-white px-3.5 py-1.5 rounded-md text-xs font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm border border-white/20"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Add Rule
+          </button>
+          
+          <button
+            type="button"
+            onClick={handleAddGroup}
+            disabled={isDisabled}
+            className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 active:bg-white/40 text-white px-3.5 py-1.5 rounded-md text-xs font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm border border-white/20"
+          >
+            <Layers className="w-3.5 h-3.5" />
+            Add Group
+          </button>
+
+          {!isRootGroup && (
+            <button
+              type="button"
+              onClick={handleRemoveGroup}
+              disabled={isDisabled}
+              className="bg-red-500/80 hover:bg-red-500 active:bg-red-600 text-white p-1.5 rounded-md transition-all disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm border border-red-400/30"
+              title="Delete Group"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
-      <div className={bodyClassName}>
+      {/* BODY - Rules Container */}
+      <div className="p-4 bg-gradient-to-b from-gray-50/50 to-white min-h-[80px]">
         {(!rules || rules.length === 0) ? (
-          <p className="text-center text-muted-foreground text-sm py-4">
-            No rules yet. Click "Add Rule" or "Add Group" to start.
-          </p>
+          <div className="text-center py-6">
+            <p className="text-muted-foreground text-sm">
+              No rules yet. Click "Add Rule" or "Add Group" to start.
+            </p>
+          </div>
         ) : (
-          rules!.map((rule, index) => {
-            if (typeof rule === "string") return null;
-            
-            if ("combinator" in rule) {
-              // It's a nested group
-              return (
-                <div key={rule.id} className="ml-4 border-l-2 border-primary/20 pl-4">
-                  {controls?.ruleGroup({
-                    ...props,
-                    path: [...pathArray, index],
-                    ruleGroup: rule,
-                  })}
-                </div>
-              );
-            } else {
-              // It's a standard rule
-              return (
-                <div key={rule.id} className="bg-background p-3 rounded border border-border">
-                  {controls?.rule({
-                    ...props,
-                    path: [...pathArray, index],
-                    rule,
-                  })}
-                </div>
-              );
-            }
-          })
+          <div className="space-y-3">
+            {rules.map((rule, index) => {
+              const rulePath = [...pathArray, index];
+              
+              if (typeof rule === "string") return null;
+              
+              if ("combinator" in rule) {
+                // Nested Group - pass all props including addRule, addGroup, etc.
+                return (
+                  <div key={rule.id} className="ml-4 pl-4 border-l-2 border-indigo-200">
+                    {controls?.ruleGroup({
+                      ...rest,
+                      ...props,
+                      path: rulePath,
+                      ruleGroup: rule,
+                    })}
+                  </div>
+                );
+              } else {
+                // Standard Rule
+                return (
+                  <div key={rule.id} className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                    {controls?.rule({
+                      ...rest,
+                      ...props,
+                      path: rulePath,
+                      rule,
+                    })}
+                  </div>
+                );
+              }
+            })}
+          </div>
         )}
 
         {showEmployeeQuery && groupEmployeeId && (
@@ -396,14 +319,14 @@ function EmployeeQueryBuilder({
   onQueryChange: (query: RuleGroupType) => void;
   disabled: boolean;
 }) {
-  const [localQuery, setLocalQuery] = useState<RuleGroupType>(initialQuery);
+  const [localQuery, setLocalQuery] = React.useState<RuleGroupType>(initialQuery);
 
-  const handleChange = useCallback((query: RuleGroupType) => {
+  const handleChange = React.useCallback((query: RuleGroupType) => {
     setLocalQuery(query);
     onQueryChange(query);
   }, [onQueryChange]);
 
-  const rqbFields = useMemo(
+  const rqbFields = React.useMemo(
     () =>
       employeeFields.map((field) => ({
         name: field.name,
@@ -416,7 +339,7 @@ function EmployeeQueryBuilder({
     [employeeFields]
   );
 
-  const rqbOperators = useMemo(
+  const rqbOperators = React.useMemo(
     () => [
       { name: "=", value: "=", label: "=" },
       { name: "!=", value: "!=", label: "≠" },
@@ -435,7 +358,7 @@ function EmployeeQueryBuilder({
     []
   );
 
-  const rqbCombinators = useMemo(
+  const rqbCombinators = React.useMemo(
     () => [
       { name: "and", value: "and", label: "AND" },
       { name: "or", value: "or", label: "OR" },
